@@ -42,6 +42,8 @@ dependencies {
 
 ## Quick Start
 
+### Traditional API
+
 ```kotlin
 import gg.flags.client.FlagsClient
 import gg.flags.client.Auth
@@ -78,6 +80,41 @@ suspend fun main() {
 }
 ```
 
+### Go-style API
+
+```kotlin
+import gg.flags.client.*
+
+suspend fun main() {
+    // Create client using Go-style API
+    val client = FlagsClient.NewClient(
+        WithAuth(Auth(
+            projectId = "your-project-id",
+            agentId = "your-agent-id",
+            environmentId = "your-environment-id"
+        )),
+        WithMemory(),
+        WithMaxRetries(3)
+    )
+    
+    // Check if a feature is enabled using Is()
+    if (client.Is("new-feature").Enabled()) {
+        println("New feature is enabled!")
+    }
+    
+    // Check multiple features
+    val darkMode = client.Is("dark-mode")
+    val betaFeature = client.Is("beta-feature")
+    
+    if (darkMode.Enabled() && betaFeature.Enabled()) {
+        println("Both dark mode and beta feature are enabled!")
+    }
+    
+    // Don't forget to close the client
+    client.close()
+}
+```
+
 ## Configuration Options
 
 ### Cache Strategies
@@ -100,6 +137,8 @@ val client = FlagsClient.builder()
 
 ### Advanced Configuration
 
+#### Builder Pattern
+
 ```kotlin
 val client = FlagsClient.builder()
     .auth(auth)
@@ -109,6 +148,18 @@ val client = FlagsClient.builder()
     .resetTimeout(Duration.ofMinutes(5)) // Circuit breaker reset timeout
     .httpClient(customHttpClient) // Custom Ktor HTTP client
     .build()
+```
+
+#### Go-style Options
+
+```kotlin
+val client = FlagsClient.NewClient(
+    WithAuth(auth),
+    WithBaseURL("https://custom-api.flags.gg"),
+    WithMaxRetries(5),
+    WithMemory(), // or WithSQLite("custom.db")
+    WithHttpClient(customHttpClient)
+)
 ```
 
 ## Environment Variable Overrides

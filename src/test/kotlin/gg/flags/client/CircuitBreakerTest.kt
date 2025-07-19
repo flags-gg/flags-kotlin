@@ -1,6 +1,7 @@
 package gg.flags.client
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import java.time.Duration
 import kotlin.test.*
 
@@ -43,7 +44,7 @@ class CircuitBreakerTest {
     }
     
     @Test
-    fun `should transition to half-open after timeout`() = runTest {
+    fun `should transition to half-open after timeout`() = runBlocking {
         val breaker = CircuitBreaker(
             failureThreshold = 1,
             resetTimeout = Duration.ofMillis(100)
@@ -54,13 +55,14 @@ class CircuitBreakerTest {
         assertEquals(CircuitBreaker.State.OPEN, breaker.getState())
         
         // Wait for timeout
-        kotlinx.coroutines.delay(150)
+        kotlinx.coroutines.delay(200)
         
         assertTrue(breaker.canExecute()) // Should be half-open now
+        assertEquals(CircuitBreaker.State.HALF_OPEN, breaker.getState())
     }
     
     @Test
-    fun `should close circuit on success in half-open state`() = runTest {
+    fun `should close circuit on success in half-open state`() = runBlocking {
         val breaker = CircuitBreaker(
             failureThreshold = 1,
             resetTimeout = Duration.ofMillis(100)

@@ -33,8 +33,19 @@ class FlagsClient private constructor(
     
     private val refreshJob = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.Default + refreshJob)
+    private val initialRefreshComplete = CompletableDeferred<Unit>()
     
     init {
+        // Do initial refresh
+        scope.launch {
+            try {
+                refreshFlags()
+                initialRefreshComplete.complete(Unit)
+            } catch (e: Exception) {
+                initialRefreshComplete.completeExceptionally(e)
+            }
+        }
+        
         // Start background refresh
         scope.launch {
             while (isActive) {
@@ -49,7 +60,9 @@ class FlagsClient private constructor(
     suspend fun isEnabled(flagName: String): Boolean {
         // Check environment variable override first
         val envVarName = "FLAGS_${flagName.uppercase().replace("-", "_")}"
-        System.getenv(envVarName)?.let { value ->
+        // Check system property first (for testing), then environment variable
+        val envValue = System.getProperty(envVarName) ?: System.getenv(envVarName)
+        envValue?.let { value ->
             return value.lowercase() == "true"
         }
         
@@ -59,9 +72,14 @@ class FlagsClient private constructor(
             return enabled
         }
         
-        // If not in cache, trigger refresh and return false
+        // If not in cache, wait for refresh and check again
         refreshFlags()
-        return false
+        val (enabledAfterRefresh, existsAfterRefresh) = cache.get(flagName)
+        return if (existsAfterRefresh) enabledAfterRefresh else false
+    }
+    
+    fun Is(flagName: String): Flag {
+        return Flag(flagName, this)
     }
     
     suspend fun flag(name: String): Flag {
@@ -70,6 +88,10 @@ class FlagsClient private constructor(
     
     suspend fun getAllFlags(): List<FeatureFlag> {
         return cache.getAll()
+    }
+    
+    internal suspend fun awaitInitialRefresh() {
+        initialRefreshComplete.await()
     }
     
     private suspend fun refreshFlags() {
@@ -188,6 +210,12 @@ class FlagsClient private constructor(
     
     companion object {
         fun builder() = Builder()
+        
+        suspend fun NewClient(vararg options: ClientOption): FlagsClient {
+            val builder = Builder()
+            options.forEach { it.apply(builder) }
+            return builder.build()
+        }
     }
 }
 
@@ -196,4 +224,8 @@ data class Flag(
     private val client: FlagsClient
 ) {
     suspend fun isEnabled(): Boolean = client.isEnabled(name)
+    
+    fun Enabled(): Boolean = runBlocking {
+        client.isEnabled(name)
+    }
 }

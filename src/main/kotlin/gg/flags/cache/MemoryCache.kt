@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 class MemoryCache : Cache {
     private val flags = ConcurrentHashMap<String, FeatureFlag>()
     private val mutex = Mutex()
-    private var lastRefresh: Instant = Instant.now()
+    private var lastRefresh: Instant? = null
     private var refreshInterval: Int = 60 // Default to 60 seconds
 
     override suspend fun get(name: String): Pair<Boolean, Boolean> {
@@ -37,8 +37,9 @@ class MemoryCache : Cache {
     }
 
     override suspend fun shouldRefreshCache(): Boolean {
+        val lastRefreshTime = lastRefresh ?: return true
         val now = Instant.now()
-        val elapsed = now.epochSecond - lastRefresh.epochSecond
+        val elapsed = now.epochSecond - lastRefreshTime.epochSecond
         return elapsed >= refreshInterval
     }
 

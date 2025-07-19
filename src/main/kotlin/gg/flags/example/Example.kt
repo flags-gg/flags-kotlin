@@ -1,43 +1,49 @@
 package gg.flags.example
 
-import gg.flags.client.FlagsClient
-import gg.flags.client.Auth
+import gg.flags.client.*
 import kotlinx.coroutines.runBlocking
 
 fun main() = runBlocking {
-    // Create client with your credentials
-    val client = FlagsClient.builder()
-        .auth(Auth(
+    // Create client using the new Go-style API
+    val client = FlagsClient.NewClient(
+        WithBaseURL("https://api.flags.gg"),
+        WithAuth(Auth(
             projectId = "your-project-id",
             agentId = "your-agent-id", 
             environmentId = "your-environment-id"
-        ))
-        .withMemoryCache() // Use memory cache for this example
-        .build()
+        )),
+        WithMemory()
+    )
     
     try {
-        // Example 1: Simple flag check
-        if (client.isEnabled("dark-mode")) {
+        // Example 1: Using the Go-style fluent API (synchronous)
+        val result = client.Is("dark-mode").Enabled()
+        if (result) {
             println("Dark mode is enabled")
         } else {
             println("Dark mode is disabled")
         }
         
-        // Example 2: Using flag object
+        // Example 2: Using flag object with async check
         val betaFeature = client.flag("beta-feature")
         if (betaFeature.isEnabled()) {
             println("Beta feature is available")
         }
         
-        // Example 3: Get all flags
+        // Example 3: Direct async check (original API)
+        if (client.isEnabled("premium-features")) {
+            println("Premium features are enabled")
+        }
+        
+        // Example 4: Get all flags
         println("\nAll feature flags:")
         client.getAllFlags().forEach { flag ->
             println("- ${flag.details.name}: ${if (flag.enabled) "✓" else "✗"}")
         }
         
-        // Example 4: Environment variable override
+        // Example 5: Environment variable override
         // Set FLAGS_EXPERIMENTAL_FEATURE=true in your environment
-        if (client.isEnabled("experimental-feature")) {
+        if (client.Is("experimental-feature").Enabled()) {
             println("\nExperimental feature is enabled (possibly via environment variable)")
         }
         

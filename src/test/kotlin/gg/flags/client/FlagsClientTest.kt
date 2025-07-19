@@ -28,7 +28,9 @@ class FlagsClientTest {
     
     @AfterTest
     fun tearDown() {
-        client.close()
+        if (::client.isInitialized) {
+            client.close()
+        }
     }
     
     @Test
@@ -58,7 +60,10 @@ class FlagsClientTest {
         
         setupMockClient(flags)
         
-        // First call should trigger API call
+        // Wait for initial refresh
+        client.awaitInitialRefresh()
+        
+        // First call should not trigger API call since it's cached
         assertTrue(client.isEnabled("cached-feature"))
         
         // Verify only one API call was made
@@ -134,12 +139,10 @@ class FlagsClientTest {
             .maxRetries(3)
             .build()
         
-        // Trigger refresh
-        client.isEnabled("retry-feature")
+        // Wait for initial refresh (which will fail once, then succeed)
+        client.awaitInitialRefresh()
         
-        // Wait for async refresh
-        kotlinx.coroutines.delay(100)
-        
+        // Now the flag should be available
         assertTrue(client.isEnabled("retry-feature"))
         assertEquals(2, callCount)
     }
@@ -170,7 +173,7 @@ class FlagsClientTest {
         setupMockClient(flags)
         
         // Wait for initial refresh
-        kotlinx.coroutines.delay(100)
+        client.awaitInitialRefresh()
         
         val allFlags = client.getAllFlags()
         assertEquals(3, allFlags.size)
@@ -189,6 +192,72 @@ class FlagsClientTest {
         
         val flag = client.flag("flag-object-test")
         assertTrue(flag.isEnabled())
+    }
+    
+    @Test
+    fun `Go-style Is() API should work correctly`() = runTest {
+        val flags = listOf(
+            FeatureFlag(true, Details("go-style-test", "1")),
+            FeatureFlag(false, Details("disabled-feature", "2"))
+        )
+        
+        setupMockClient(flags)
+        
+        // Wait for initial refresh
+        kotlinx.coroutines.delay(100)
+        
+        // Test enabled flag
+        val enabledFlag = client.Is("go-style-test")
+        assertTrue(enabledFlag.Enabled())
+        
+        // Test disabled flag
+        val disabledFlag = client.Is("disabled-feature")
+        assertFalse(disabledFlag.Enabled())
+        
+        // Test non-existent flag
+        val nonExistentFlag = client.Is("non-existent")
+        assertFalse(nonExistentFlag.Enabled())
+    }
+    
+    @Test
+    fun `NewClient with options should work correctly`() = runTest {
+        val response = ApiResponse(
+            intervalAllowed = 60,
+            flags = listOf(FeatureFlag(true, Details("new-client-test", "1")))
+        )
+        
+        mockEngine = MockEngine { request ->
+            respond(
+                content = json.encodeToString(response),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json")
+            )
+        }
+        
+        val mockHttpClient = HttpClient(mockEngine) {
+            install(ContentNegotiation) {
+                json(json)
+            }
+        }
+        
+        // Create client using new Go-style API
+        val newClient = FlagsClient.NewClient(
+            WithBaseURL("https://api.test.com"),
+            WithAuth(Auth("test-project", "test-agent", "test-env")),
+            WithMemory(),
+            WithHttpClient(mockHttpClient),
+            WithMaxRetries(2)
+        )
+        
+        try {
+            // Wait for initial refresh
+            kotlinx.coroutines.delay(100)
+            
+            // Test using Go-style API
+            assertTrue(newClient.Is("new-client-test").Enabled())
+        } finally {
+            newClient.close()
+        }
     }
     
     private suspend fun setupMockClient(flags: List<FeatureFlag>) {

@@ -60,6 +60,15 @@ class CircuitBreaker(
 
     suspend fun getState(): State {
         mutex.withLock {
+            // Check if we should transition from OPEN to HALF_OPEN
+            if (state == State.OPEN) {
+                val now = Instant.now()
+                lastFailureTime?.let { lastFailure ->
+                    if (Duration.between(lastFailure, now) > resetTimeout) {
+                        state = State.HALF_OPEN
+                    }
+                }
+            }
             return state
         }
     }

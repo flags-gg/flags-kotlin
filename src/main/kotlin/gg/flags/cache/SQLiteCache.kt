@@ -51,7 +51,7 @@ class SQLiteCache(private val dbPath: String = "flags_cache.db") : Cache {
             // Initialize refresh info if not exists
             statement.executeUpdate("""
                 INSERT OR IGNORE INTO refresh_info (id, last_refresh, interval_allowed) 
-                VALUES (1, ${Instant.now().epochSecond}, 60)
+                VALUES (1, 0, 60)
             """)
         }
     }
@@ -92,9 +92,11 @@ class SQLiteCache(private val dbPath: String = "flags_cache.db") : Cache {
         }
     }
 
-    override suspend fun refresh(flags: List<FeatureFlag>, intervalAllowed: Int) = withContext(Dispatchers.IO) {
+    override suspend fun refresh(flags: List<FeatureFlag>, intervalAllowed: Int) {
+        withContext(Dispatchers.IO) {
         mutex.withLock {
-            connection?.let { conn ->
+            val conn = connection ?: throw IllegalStateException("Database connection is closed")
+            
                 // Start transaction
                 conn.autoCommit = false
                 
@@ -129,7 +131,7 @@ class SQLiteCache(private val dbPath: String = "flags_cache.db") : Cache {
                 } finally {
                     conn.autoCommit = true
                 }
-            }
+        }
         }
     }
 
@@ -141,9 +143,14 @@ class SQLiteCache(private val dbPath: String = "flags_cache.db") : Cache {
                 if (resultSet.next()) {
                     val lastRefresh = resultSet.getLong("last_refresh")
                     val intervalAllowed = resultSet.getInt("interval_allowed")
-                    val now = Instant.now().epochSecond
-                    val elapsed = now - lastRefresh
-                    elapsed >= intervalAllowed
+                    // If never refreshed (lastRefresh = 0), should refresh
+                    if (lastRefresh == 0L) {
+                        return@use true
+                    } else {
+                        val now = Instant.now().epochSecond
+                        val elapsed = now - lastRefresh
+                        return@use elapsed >= intervalAllowed
+                    }
                 } else {
                     true
                 }
