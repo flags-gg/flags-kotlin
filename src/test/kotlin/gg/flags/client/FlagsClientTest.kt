@@ -67,7 +67,7 @@ class FlagsClientTest {
         assertTrue(client.isEnabled("cached-feature"))
         
         // Verify only one API call was made
-        assertEquals(1, (mockEngine as MockEngine).requestHistory.size)
+        assertEquals(1, mockEngine.requestHistory.size)
     }
     
     @Test
@@ -79,7 +79,7 @@ class FlagsClientTest {
     
     @Test
     fun `should handle API errors gracefully`() = runTest {
-        mockEngine = MockEngine { request ->
+        mockEngine = MockEngine { _ ->
             respond(
                 content = "",
                 status = HttpStatusCode.InternalServerError
@@ -106,7 +106,7 @@ class FlagsClientTest {
     @Test
     fun `should retry on failure`() = runTest {
         var callCount = 0
-        mockEngine = MockEngine { request ->
+        mockEngine = MockEngine { _ ->
             callCount++
             if (callCount < 2) {
                 respond(
@@ -226,7 +226,7 @@ class FlagsClientTest {
             flags = listOf(FeatureFlag(true, Details("new-client-test", "1")))
         )
         
-        mockEngine = MockEngine { request ->
+        mockEngine = MockEngine { _ ->
             respond(
                 content = json.encodeToString(response),
                 status = HttpStatusCode.OK,
@@ -266,7 +266,7 @@ class FlagsClientTest {
             flags = flags
         )
         
-        mockEngine = MockEngine { request ->
+        mockEngine = MockEngine { _ ->
             respond(
                 content = json.encodeToString(response),
                 status = HttpStatusCode.OK,
@@ -288,7 +288,7 @@ class FlagsClientTest {
     }
     
     // Helper function to simulate environment variables in tests
-    private inline fun <T> withEnvironmentVariable(key: String, value: String, block: () -> T): T {
+    private inline fun <T> withEnvironmentVariable(key: String, @Suppress("UNUSED_PARAMETER") value: String, block: () -> T): T {
         // In a real implementation, this would use System.getenv()
         // For testing, we're using the FLAGS_ prefix check directly
         return if (key.startsWith("FLAGS_")) {
