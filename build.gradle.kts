@@ -53,19 +53,9 @@ java {
     withJavadocJar()
 }
 
-mavenCentralPublish {
-    workingDir = layout.buildDirectory.dir("maven-central-publish").get().asFile
-    singleDevId = "flags-gg"
-    singleDevName = "Flags.gg Team"
-    singleDevEmail = "support@flags.gg"
-    licenseMIT()
+mavenPublishing {
+    publishingType = moe.karla.maven.publishing.MavenPublishingExtension.PublishingType.USER_MANAGED
 
-    projectUrl = "https://github.com/flags-gg/flags-kotlin"
-    scmUrl = "https://github.com/flags-gg/flags-kotlin.git"
-
-    publication {
-        artifact(tasks.jar)
-        artifact(tasks.named("sourcesJar"))
-        artifact(tasks.named("javadocJar"))
-    }
+    url = "https://github.com/flags-gg/flags-kotlin"
+    developer("Keloran", "keloran@chewedfeed.com")
 }
