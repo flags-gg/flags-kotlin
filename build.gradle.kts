@@ -1,11 +1,9 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
-    kotlin("jvm") version "2.0.21"
-    kotlin("plugin.serialization") version "2.0.21"
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
     `maven-publish`
     signing
-    id("org.jetbrains.dokka") version "1.9.20"
+    alias(libs.plugins.dokka)
 }
 
 group = "gg.flags"
@@ -16,30 +14,26 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-stdlib")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation(libs.kotlin.stdlib)
+    implementation(libs.coroutines.core)
+    implementation(libs.serialization.json)
 
     // HTTP client
-    implementation("io.ktor:ktor-client-core:2.3.12")
-    implementation("io.ktor:ktor-client-cio:2.3.12")
-    implementation("io.ktor:ktor-client-content-negotiation:2.3.12")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
-    implementation("io.ktor:ktor-client-logging:2.3.12")
+    implementation(libs.bundles.ktor.client)
 
     // SQLite
-    implementation("org.xerial:sqlite-jdbc:3.51.1.0")
-    
+    implementation(libs.sqlite.jdbc)
+
     // Logging
-    implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
-    implementation("org.slf4j:slf4j-api:2.0.17")
-    
+    implementation(libs.kotlin.logging)
+    implementation(libs.slf4j.api)
+
     // Testing
     testImplementation(kotlin("test"))
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
-    testImplementation("io.mockk:mockk:1.13.8")
-    testImplementation("io.ktor:ktor-client-mock:2.3.7")
-    testRuntimeOnly("org.slf4j:slf4j-simple:2.0.17")
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.mockk)
+    testImplementation(libs.ktor.client.mock)
+    testRuntimeOnly(libs.slf4j.simple)
 }
 
 tasks.test {
@@ -47,8 +41,10 @@ tasks.test {
     jvmArgs("--enable-native-access=ALL-UNNAMED")
 }
 
-tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "21"
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    }
 }
 
 java {
