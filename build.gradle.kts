@@ -28,18 +28,18 @@ dependencies {
     implementation("io.ktor:ktor-client-logging:2.3.12")
 
     // SQLite
-    implementation("org.xerial:sqlite-jdbc:3.44.1.0")
-
+    implementation("org.xerial:sqlite-jdbc:3.51.1.0")
+    
     // Logging
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
-    implementation("org.slf4j:slf4j-api:2.0.9")
-
+    implementation("org.slf4j:slf4j-api:2.0.17")
+    
     // Testing
     testImplementation(kotlin("test"))
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
-    testImplementation("io.mockk:mockk:1.13.12")
-    testImplementation("io.ktor:ktor-client-mock:2.3.12")
-    testRuntimeOnly("org.slf4j:slf4j-simple:2.0.9")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+    testImplementation("io.mockk:mockk:1.13.8")
+    testImplementation("io.ktor:ktor-client-mock:2.3.7")
+    testRuntimeOnly("org.slf4j:slf4j-simple:2.0.17")
 }
 
 tasks.test {
