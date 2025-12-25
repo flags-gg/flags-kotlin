@@ -105,7 +105,7 @@ class FlagsClient private constructor(
         
         while (retries < maxRetries) {
             try {
-                val response = httpClient.get("$baseUrl/flags/enabled") {
+                val response = httpClient.get("$baseUrl/flags") {
                     headers {
                         append("X-Project-ID", auth.projectId)
                         append("X-Environment-ID", auth.environmentId)
