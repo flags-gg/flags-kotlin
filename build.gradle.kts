@@ -28,7 +28,7 @@ dependencies {
     implementation("io.ktor:ktor-client-logging:2.3.7")
     
     // SQLite
-    implementation("org.xerial:sqlite-jdbc:3.44.1.0")
+    implementation("org.xerial:sqlite-jdbc:3.51.1.0")
     
     // Logging
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
