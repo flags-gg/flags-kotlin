@@ -32,14 +32,14 @@ dependencies {
     
     // Logging
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
-    implementation("org.slf4j:slf4j-api:2.0.9")
+    implementation("org.slf4j:slf4j-api:2.0.17")
     
     // Testing
     testImplementation(kotlin("test"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("io.ktor:ktor-client-mock:2.3.7")
-    testRuntimeOnly("org.slf4j:slf4j-simple:2.0.9")
+    testRuntimeOnly("org.slf4j:slf4j-simple:2.0.17")
 }
 
 tasks.test {
