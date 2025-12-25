@@ -1,1 +1,1 @@
-rootProject.name = "flags-kotlin"
+rootProject.name = "flags"
