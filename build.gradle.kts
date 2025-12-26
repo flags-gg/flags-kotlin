@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.dokka)
     alias(libs.plugins.maven.central.publish)
+    `maven-publish`
 }
 
 group = "gg.flags"
@@ -51,6 +52,45 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
     withSourcesJar()
     withJavadocJar()
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+
+            groupId = "gg.flags"
+            artifactId = "flags-kotlin"
+            version = project.version.toString()
+
+            pom {
+                name.set("Flags Kotlin SDK")
+                description.set("Kotlin SDK for Flags.gg feature flag service")
+                url.set("https://github.com/flags-gg/flags-kotlin")
+
+                licenses {
+                    license {
+                        name.set("MIT License")
+                        url.set("https://opensource.org/licenses/MIT")
+                    }
+                }
+
+                developers {
+                    developer {
+                        id.set("Keloran")
+                        name.set("Keloran")
+                        email.set("keloran@chewedfeed.com")
+                    }
+                }
+
+                scm {
+                    url.set("https://github.com/flags-gg/flags-kotlin")
+                    connection.set("scm:git:git://github.com/flags-gg/flags-kotlin.git")
+                    developerConnection.set("scm:git:ssh://git@github.com/flags-gg/flags-kotlin.git")
+                }
+            }
+        }
+    }
 }
 
 mavenPublishing {
