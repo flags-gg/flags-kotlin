@@ -28,3 +28,4 @@ jobs:
         env:
           SIGNING_SETUP: ${{ secrets.MAVEN_CENTRAL_PUBLISH_GPG }}
           MAVEN_PUBLISH_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          MAVEN_PUBLISH_USER: ${{ secrets.MAVEN_USERNAME }}
