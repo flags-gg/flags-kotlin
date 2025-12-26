@@ -20,8 +20,26 @@ class SQLiteCache(private val dbPath: String = "flags_cache.db") : Cache {
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true }
 
+    companion object {
+        private const val SQLITE_DRIVER_CLASS = "org.sqlite.JDBC"
+
+        private fun checkDriverAvailable() {
+            try {
+                Class.forName(SQLITE_DRIVER_CLASS)
+            } catch (e: ClassNotFoundException) {
+                throw IllegalStateException(
+                    "SQLite JDBC driver not found. To use SQLiteCache, add the sqlite-jdbc dependency: " +
+                    "implementation(\"org.xerial:sqlite-jdbc:<version>\"). " +
+                    "For Android, use MemoryCache instead or provide a custom Cache implementation.",
+                    e
+                )
+            }
+        }
+    }
+
     override suspend fun init() = withContext(Dispatchers.IO) {
         try {
+            checkDriverAvailable()
             connection = DriverManager.getConnection("jdbc:sqlite:$dbPath")
             createTables()
         } catch (e: Exception) {

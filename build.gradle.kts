@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "gg.flags"
-version = "1.0.0"
+version = "1.1.0"
 
 repositories {
     mavenCentral()
@@ -21,8 +21,8 @@ dependencies {
     // HTTP client
     implementation(libs.bundles.ktor.client)
 
-    // SQLite
-    implementation(libs.sqlite.jdbc)
+    // SQLite (optional - only needed if using SQLiteCache)
+    compileOnly(libs.sqlite.jdbc)
 
     // Logging
     implementation(libs.kotlin.logging)
@@ -33,6 +33,7 @@ dependencies {
     testImplementation(libs.coroutines.test)
     testImplementation(libs.mockk)
     testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.sqlite.jdbc)
     testRuntimeOnly(libs.slf4j.simple)
 }
 

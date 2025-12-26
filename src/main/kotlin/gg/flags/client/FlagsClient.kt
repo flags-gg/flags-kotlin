@@ -7,7 +7,7 @@ import gg.flags.model.ApiResponse
 import gg.flags.model.FeatureFlag
 import io.ktor.client.*
 import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
+import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
@@ -169,10 +169,10 @@ class FlagsClient private constructor(
         suspend fun build(): FlagsClient {
             val finalAuth = auth ?: throw IllegalArgumentException("Auth configuration is required")
             
-            val finalCache = cache ?: SQLiteCache()
+            val finalCache = cache ?: MemoryCache()
             finalCache.init()
             
-            val finalHttpClient = httpClient ?: HttpClient(CIO) {
+            val finalHttpClient = httpClient ?: HttpClient(OkHttp) {
                 install(ContentNegotiation) {
                     json(Json {
                         ignoreUnknownKeys = true
