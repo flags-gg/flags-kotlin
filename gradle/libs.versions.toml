@@ -37,4 +37,4 @@ ktor-client = ["ktor-client-core", "ktor-client-okhttp", "ktor-client-contentNeg
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
-maven-central-publish = { id = "moe.karla.maven-publishing", version = "1.3.1" }
+maven-central-publish = { id = "moe.karla.maven-publishing", version = "1.4.0" }
