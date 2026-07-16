@@ -5,7 +5,7 @@ coroutines = "1.10.2"
 serialization = "1.11.0"
 sqlite = "3.53.0.0"
 kotlinLogging = "3.0.5"
-slf4j = "2.0.17"
+slf4j = "2.0.18"
 mockk = "1.14.9"
 dokka = "2.2.0"
 
