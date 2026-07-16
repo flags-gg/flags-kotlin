@@ -6,7 +6,7 @@ serialization = "1.11.0"
 sqlite = "3.53.0.0"
 kotlinLogging = "3.0.5"
 slf4j = "2.0.17"
-mockk = "1.14.9"
+mockk = "1.14.11"
 dokka = "2.2.0"
 
 [libraries]
