@@ -24,9 +24,13 @@ jobs:
       - name: Run tests
         run: ./gradlew test
       - name: Publish to Maven Central
-        # publish signs the artifacts into the plugin's stage; publishToMavenCentral zips and uploads that stage
-        run: ./gradlew publish publishToMavenCentral
+        # publish signs the artifacts into the plugin's stage; publishToMavenCentral zips and uploads that stage.
+        # Gradle's in-memory signing only accepts the short (8 hex) key id, so trim a full fingerprint in keyId.
+        run: |
+          SIGNING_SETUP="$(printf '%s' "$SIGNING_SETUP_RAW" | jq -c '.keyId |= (if type == "string" and length > 8 then .[-8:] else . end)')"
+          export SIGNING_SETUP
+          ./gradlew publish publishToMavenCentral
         env:
-          SIGNING_SETUP: ${{ secrets.MAVEN_CENTRAL_PUBLISH_GPG }}
+          SIGNING_SETUP_RAW: ${{ secrets.MAVEN_CENTRAL_PUBLISH_GPG }}
           MAVEN_PUBLISH_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
           MAVEN_PUBLISH_USER: ${{ secrets.MAVEN_USERNAME }}
