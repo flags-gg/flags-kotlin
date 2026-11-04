@@ -7,7 +7,8 @@ plugins {
 }
 
 group = "gg.flags"
-version = "1.1.0"
+// Release version comes from the tag (the publish workflow exports VERSION from refs/tags/vX.Y.Z)
+version = providers.environmentVariable("VERSION").getOrElse("0.0.0-SNAPSHOT")
 
 repositories {
     mavenCentral()
