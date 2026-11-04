@@ -37,13 +37,22 @@ class RolloutTest {
         assertFalse(Rollout.inRollout("new-checkout", "user-1", 0))
     }
 
+    @Test
+    fun `encodes the user for the server's targeting rules`() {
+        val encoded = Rollout.encodeContext("u-1", mapOf("email" to "ana@acme.com", "groups" to listOf("beta", "ünï")))
+        val decoded = Json.parseToJsonElement(String(java.util.Base64.getDecoder().decode(encoded), Charsets.UTF_8)).toString()
+        assertEquals("""{"email":"ana@acme.com","groups":["beta","ünï"],"key":"u-1"}""", decoded)
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
 
     @Test
     fun `client declares the capability and resolves rollouts per targeting key`() = runTest {
         var capabilities: String? = null
+        var sentContext: String? = null
         val engine = MockEngine { req ->
             capabilities = req.headers["X-Flags-Capabilities"]
+            sentContext = req.headers["X-Flags-Context"]
             respond(
                 json.encodeToString(ApiResponse(60, listOf(FeatureFlag(true, Details("new-checkout", "1"), rollout = 64)))),
                 HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"),
@@ -58,6 +67,7 @@ class RolloutTest {
         try {
             client.awaitInitialRefresh()
             assertEquals("rollout", capabilities)
+            assertTrue(sentContext!!.isNotEmpty())
             assertTrue(client.isEnabled("new-checkout"))
 
             client.setTargetingKey("user-2") // bucket 82: out

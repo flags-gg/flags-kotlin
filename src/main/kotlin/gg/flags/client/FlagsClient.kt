@@ -29,7 +29,8 @@ class FlagsClient private constructor(
     private val httpClient: HttpClient,
     private val circuitBreaker: CircuitBreaker,
     private val maxRetries: Int,
-    @Volatile private var targetingKey: String?
+    @Volatile private var targetingKey: String?,
+    @Volatile private var context: Map<String, Any>
 ) : AutoCloseable {
     
     private val refreshJob = SupervisorJob()
@@ -88,6 +89,12 @@ class FlagsClient private constructor(
         refreshFlags()
     }
 
+    /** Replace the attributes targeting rules see (e.g. email, plan, groups) and re-fetch. */
+    suspend fun setContext(attributes: Map<String, Any>) {
+        context = attributes
+        refreshFlags()
+    }
+
     fun Is(flagName: String): Flag {
         return Flag(flagName, this)
     }
@@ -121,6 +128,7 @@ class FlagsClient private constructor(
                         append("X-Environment-ID", auth.environmentId)
                         append("X-Agent-ID", auth.agentId)
                         append("X-Flags-Capabilities", "rollout")
+                        append("X-Flags-Context", Rollout.encodeContext(targetingKey, context))
                     }
                 }
                 
@@ -169,6 +177,7 @@ class FlagsClient private constructor(
         private var failureThreshold: Int = 5
         private var resetTimeout: Duration = Duration.ofMinutes(1)
         private var targetingKey: String? = null
+        private var context: Map<String, Any> = emptyMap()
         
         fun baseUrl(url: String) = apply { this.baseUrl = url }
         fun auth(auth: Auth) = apply { this.auth = auth }
@@ -179,6 +188,8 @@ class FlagsClient private constructor(
         fun resetTimeout(timeout: Duration) = apply { this.resetTimeout = timeout }
         /** Stable id of the user or device, used for percentage rollouts. */
         fun targetingKey(key: String?) = apply { this.targetingKey = key }
+        /** Attributes for targeting rules, e.g. mapOf("email" to email, "groups" to listOf("beta")). Evaluated by the server. */
+        fun context(attributes: Map<String, Any>) = apply { this.context = attributes }
         
         fun withMemoryCache() = apply { this.cache = MemoryCache() }
         fun withSQLiteCache(dbPath: String = "flags_cache.db") = apply { 
@@ -223,7 +234,8 @@ class FlagsClient private constructor(
                 httpClient = finalHttpClient,
                 circuitBreaker = circuitBreaker,
                 maxRetries = maxRetries,
-                targetingKey = targetingKey
+                targetingKey = targetingKey,
+                context = context
             )
         }
     }

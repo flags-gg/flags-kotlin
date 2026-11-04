@@ -184,6 +184,20 @@ client.setTargetingKey(user.id)
 
 `isEnabled` already accounts for the rollout. The bucket is FNV-1a 32 of `"<flag>:<key>" % 100`, the same as the API and every other SDK.
 
+## Targeting Rules
+
+Flags can be turned on or off for specific users, groups or segments with rules set in the dashboard. Pass the user's attributes as `context`. The server evaluates the rules, so rule values never reach the device:
+
+```kotlin
+val client = FlagsClient.builder()
+    .auth(auth)
+    .targetingKey(user.id)
+    .context(mapOf("email" to user.email, "plan" to user.plan, "groups" to user.groups))
+    .build()
+
+client.setContext(mapOf("plan" to "pro")) // e.g. after an upgrade; re-fetches
+```
+
 ## Environment Variable Overrides
 
 For local development and testing, you can override feature flags using environment variables:
