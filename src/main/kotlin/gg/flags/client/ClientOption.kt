@@ -46,6 +46,12 @@ fun WithHttpClient(client: HttpClient) = object : ClientOption {
     }
 }
 
+fun WithTargetingKey(key: String?) = object : ClientOption {
+    override fun apply(builder: FlagsClient.Builder) {
+        builder.targetingKey(key)
+    }
+}
+
 fun WithMaxRetries(retries: Int) = object : ClientOption {
     override fun apply(builder: FlagsClient.Builder) {
         builder.maxRetries(retries)

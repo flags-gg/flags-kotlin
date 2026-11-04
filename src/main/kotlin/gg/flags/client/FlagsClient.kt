@@ -28,7 +28,8 @@ class FlagsClient private constructor(
     private val cache: Cache,
     private val httpClient: HttpClient,
     private val circuitBreaker: CircuitBreaker,
-    private val maxRetries: Int
+    private val maxRetries: Int,
+    @Volatile private var targetingKey: String?
 ) : AutoCloseable {
     
     private val refreshJob = SupervisorJob()
@@ -78,6 +79,15 @@ class FlagsClient private constructor(
         return if (existsAfterRefresh) enabledAfterRefresh else false
     }
     
+    /**
+     * Change who this client evaluates rollouts for (e.g. after login) and re-fetch,
+     * so cached values match the new user.
+     */
+    suspend fun setTargetingKey(key: String?) {
+        targetingKey = key
+        refreshFlags()
+    }
+
     fun Is(flagName: String): Flag {
         return Flag(flagName, this)
     }
@@ -110,12 +120,18 @@ class FlagsClient private constructor(
                         append("X-Project-ID", auth.projectId)
                         append("X-Environment-ID", auth.environmentId)
                         append("X-Agent-ID", auth.agentId)
+                        append("X-Flags-Capabilities", "rollout")
                     }
                 }
                 
                 if (response.status.isSuccess()) {
                     val apiResponse = response.body<ApiResponse>()
-                    cache.refresh(apiResponse.flags, apiResponse.intervalAllowed)
+                    // resolve rollouts once, so the cache (and isEnabled) just see enabled
+                    val key = targetingKey
+                    val resolved = apiResponse.flags.map {
+                        it.copy(enabled = it.enabled && Rollout.inRollout(it.details.name, key, it.rollout))
+                    }
+                    cache.refresh(resolved, apiResponse.intervalAllowed)
                     circuitBreaker.recordSuccess()
                     return
                 } else {
@@ -152,6 +168,7 @@ class FlagsClient private constructor(
         private var maxRetries: Int = 3
         private var failureThreshold: Int = 5
         private var resetTimeout: Duration = Duration.ofMinutes(1)
+        private var targetingKey: String? = null
         
         fun baseUrl(url: String) = apply { this.baseUrl = url }
         fun auth(auth: Auth) = apply { this.auth = auth }
@@ -160,6 +177,8 @@ class FlagsClient private constructor(
         fun maxRetries(retries: Int) = apply { this.maxRetries = retries }
         fun failureThreshold(threshold: Int) = apply { this.failureThreshold = threshold }
         fun resetTimeout(timeout: Duration) = apply { this.resetTimeout = timeout }
+        /** Stable id of the user or device, used for percentage rollouts. */
+        fun targetingKey(key: String?) = apply { this.targetingKey = key }
         
         fun withMemoryCache() = apply { this.cache = MemoryCache() }
         fun withSQLiteCache(dbPath: String = "flags_cache.db") = apply { 
@@ -203,7 +222,8 @@ class FlagsClient private constructor(
                 cache = finalCache,
                 httpClient = finalHttpClient,
                 circuitBreaker = circuitBreaker,
-                maxRetries = maxRetries
+                maxRetries = maxRetries,
+                targetingKey = targetingKey
             )
         }
     }
