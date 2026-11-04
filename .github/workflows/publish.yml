@@ -26,8 +26,9 @@ jobs:
       - name: Publish to Maven Central
         # publish signs the artifacts into the plugin's stage; publishToMavenCentral zips and uploads that stage.
         # Gradle's in-memory signing only accepts the short (8 hex) key id, so trim a full fingerprint in keyId.
+        # sed, not jq: the setup isn't strict JSON (the armored key has raw newlines), which the plugin tolerates.
         run: |
-          SIGNING_SETUP="$(printf '%s' "$SIGNING_SETUP_RAW" | jq -c '.keyId |= (if type == "string" and length > 8 then .[-8:] else . end)')"
+          SIGNING_SETUP="$(printf '%s' "$SIGNING_SETUP_RAW" | sed -E 's/("keyId"[[:space:]]*:[[:space:]]*")(0x)?[0-9A-Fa-f]*([0-9A-Fa-f]{8})"/\1\3"/')"
           export SIGNING_SETUP
           ./gradlew publish publishToMavenCentral
         env:
