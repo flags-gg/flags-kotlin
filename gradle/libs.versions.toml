@@ -1,12 +1,12 @@
 [versions]
-kotlin = "2.3.20"
-ktor = "3.4.3"
-coroutines = "1.10.2"
-serialization = "1.11.0"
-sqlite = "3.53.0.0"
-kotlinLogging = "3.0.5"
-slf4j = "2.0.17"
-mockk = "1.14.9"
+kotlin = "2.4.21"
+ktor = "3.6.1"
+coroutines = "1.11.0"
+serialization = "1.12.0"
+sqlite = "3.54.1.0"
+kotlinLogging = "8.0.4"
+slf4j = "2.0.20"
+mockk = "1.14.11"
 dokka = "2.2.0"
 
 [libraries]
@@ -24,7 +24,7 @@ ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 
 sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
 
-kotlin-logging = { module = "io.github.microutils:kotlin-logging-jvm", version.ref = "kotlinLogging" }
+kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlinLogging" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 

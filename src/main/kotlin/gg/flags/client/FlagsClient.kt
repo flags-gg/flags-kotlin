@@ -16,7 +16,7 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import java.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -28,7 +28,9 @@ class FlagsClient private constructor(
     private val cache: Cache,
     private val httpClient: HttpClient,
     private val circuitBreaker: CircuitBreaker,
-    private val maxRetries: Int
+    private val maxRetries: Int,
+    @Volatile private var targetingKey: String?,
+    @Volatile private var context: Map<String, Any>
 ) : AutoCloseable {
     
     private val refreshJob = SupervisorJob()
@@ -78,6 +80,21 @@ class FlagsClient private constructor(
         return if (existsAfterRefresh) enabledAfterRefresh else false
     }
     
+    /**
+     * Change who this client evaluates rollouts for (e.g. after login) and re-fetch,
+     * so cached values match the new user.
+     */
+    suspend fun setTargetingKey(key: String?) {
+        targetingKey = key
+        refreshFlags()
+    }
+
+    /** Replace the attributes targeting rules see (e.g. email, plan, groups) and re-fetch. */
+    suspend fun setContext(attributes: Map<String, Any>) {
+        context = attributes
+        refreshFlags()
+    }
+
     fun Is(flagName: String): Flag {
         return Flag(flagName, this)
     }
@@ -110,12 +127,19 @@ class FlagsClient private constructor(
                         append("X-Project-ID", auth.projectId)
                         append("X-Environment-ID", auth.environmentId)
                         append("X-Agent-ID", auth.agentId)
+                        append("X-Flags-Capabilities", "rollout")
+                        append("X-Flags-Context", Rollout.encodeContext(targetingKey, context))
                     }
                 }
                 
                 if (response.status.isSuccess()) {
                     val apiResponse = response.body<ApiResponse>()
-                    cache.refresh(apiResponse.flags, apiResponse.intervalAllowed)
+                    // resolve rollouts once, so the cache (and isEnabled) just see enabled
+                    val key = targetingKey
+                    val resolved = apiResponse.flags.map {
+                        it.copy(enabled = it.enabled && Rollout.inRollout(it.details.name, key, it.rollout))
+                    }
+                    cache.refresh(resolved, apiResponse.intervalAllowed)
                     circuitBreaker.recordSuccess()
                     return
                 } else {
@@ -152,6 +176,8 @@ class FlagsClient private constructor(
         private var maxRetries: Int = 3
         private var failureThreshold: Int = 5
         private var resetTimeout: Duration = Duration.ofMinutes(1)
+        private var targetingKey: String? = null
+        private var context: Map<String, Any> = emptyMap()
         
         fun baseUrl(url: String) = apply { this.baseUrl = url }
         fun auth(auth: Auth) = apply { this.auth = auth }
@@ -160,6 +186,10 @@ class FlagsClient private constructor(
         fun maxRetries(retries: Int) = apply { this.maxRetries = retries }
         fun failureThreshold(threshold: Int) = apply { this.failureThreshold = threshold }
         fun resetTimeout(timeout: Duration) = apply { this.resetTimeout = timeout }
+        /** Stable id of the user or device, used for percentage rollouts. */
+        fun targetingKey(key: String?) = apply { this.targetingKey = key }
+        /** Attributes for targeting rules, e.g. mapOf("email" to email, "groups" to listOf("beta")). Evaluated by the server. */
+        fun context(attributes: Map<String, Any>) = apply { this.context = attributes }
         
         fun withMemoryCache() = apply { this.cache = MemoryCache() }
         fun withSQLiteCache(dbPath: String = "flags_cache.db") = apply { 
@@ -203,7 +233,9 @@ class FlagsClient private constructor(
                 cache = finalCache,
                 httpClient = finalHttpClient,
                 circuitBreaker = circuitBreaker,
-                maxRetries = maxRetries
+                maxRetries = maxRetries,
+                targetingKey = targetingKey,
+                context = context
             )
         }
     }

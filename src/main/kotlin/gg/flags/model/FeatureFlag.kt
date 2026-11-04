@@ -11,5 +11,7 @@ data class Details(
 @Serializable
 data class FeatureFlag(
     val enabled: Boolean,
-    val details: Details
+    val details: Details,
+    /** Percentage of users that see the flag when enabled; null means 100. */
+    val rollout: Int? = null
 )
