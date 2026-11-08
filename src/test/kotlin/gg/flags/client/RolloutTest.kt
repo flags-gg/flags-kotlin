@@ -39,9 +39,9 @@ class RolloutTest {
 
     @Test
     fun `encodes the user for the server's targeting rules`() {
-        val encoded = Rollout.encodeContext("u-1", mapOf("email" to "ana@acme.com", "groups" to listOf("beta", "ünï")))
+        val encoded = Rollout.encodeContext("u-1", mapOf("email" to listOf("ana@acme.com"), "groups" to listOf("beta", "ünï")))
         val decoded = Json.parseToJsonElement(String(java.util.Base64.getDecoder().decode(encoded), Charsets.UTF_8)).toString()
-        assertEquals("""{"email":"ana@acme.com","groups":["beta","ünï"],"key":"u-1"}""", decoded)
+        assertEquals("""{"email":["ana@acme.com"],"groups":["beta","ünï"],"key":"u-1"}""", decoded)
     }
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -73,6 +73,50 @@ class RolloutTest {
             client.setTargetingKey("user-2") // bucket 82: out
             assertFalse(client.isEnabled("new-checkout"))
         } finally {
+            client.close()
+        }
+    }
+
+    @Test
+    fun `lookups ignore case, env accepts truthy values, batch helpers and string context`() = runTest {
+        var sentContext: String? = null
+        val engine = MockEngine { req ->
+            sentContext = req.headers["X-Flags-Context"]
+            respond(
+                json.encodeToString(ApiResponse(60, listOf(
+                    FeatureFlag(true, Details("Dark-Mode", "1")),
+                    FeatureFlag(false, Details("beta", "2")),
+                ))),
+                HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        System.setProperty("FLAGS_SPACED_FLAG", "Yes")
+        System.setProperty("FLAGS_OFF_FLAG", "off")
+        val client = FlagsClient.builder()
+            .auth(Auth("p", "a", "e"))
+            .httpClient(HttpClient(engine) { install(ContentNegotiation) { json(json) } })
+            .withMemoryCache()
+            .targetingKey("u-1")
+            .context(mapOf("plan" to "pro"))
+            .build()
+        try {
+            client.awaitInitialRefresh()
+            val decoded = String(java.util.Base64.getDecoder().decode(sentContext!!), Charsets.UTF_8)
+            assertEquals("""{"plan":["pro"],"key":"u-1"}""", decoded)
+
+            assertTrue(client.isEnabled("dark-mode"))
+            assertTrue(client.isEnabled("DARK-MODE"))
+            assertTrue(client.isEnabled("spaced flag"))
+            assertFalse(client.isEnabled("off-flag"))
+
+            assertEquals(mapOf("Dark-Mode" to true, "beta" to false), client.getMultiple(listOf("Dark-Mode", "beta")))
+            assertFalse(client.allEnabled(listOf("dark-mode", "beta")))
+            assertTrue(client.anyEnabled(listOf("dark-mode", "beta")))
+            assertTrue(client.allEnabled(emptyList()))
+            assertFalse(client.anyEnabled(emptyList()))
+        } finally {
+            System.clearProperty("FLAGS_SPACED_FLAG")
+            System.clearProperty("FLAGS_OFF_FLAG")
             client.close()
         }
     }

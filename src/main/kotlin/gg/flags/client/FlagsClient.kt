@@ -30,7 +30,7 @@ class FlagsClient private constructor(
     private val circuitBreaker: CircuitBreaker,
     private val maxRetries: Int,
     @Volatile private var targetingKey: String?,
-    @Volatile private var context: Map<String, Any>
+    @Volatile private var context: Map<String, List<String>>
 ) : AutoCloseable {
     
     private val refreshJob = SupervisorJob()
@@ -51,7 +51,7 @@ class FlagsClient private constructor(
         // Start background refresh
         scope.launch {
             while (isActive) {
-                delay(5.seconds)
+                delay(REFRESH_CHECK_INTERVAL) // fetches when the server's intervalAllowed has passed
                 if (cache.shouldRefreshCache()) {
                     refreshFlags()
                 }
@@ -60,23 +60,24 @@ class FlagsClient private constructor(
     }
     
     suspend fun isEnabled(flagName: String): Boolean {
-        // Check environment variable override first
-        val envVarName = "FLAGS_${flagName.uppercase().replace("-", "_")}"
+        // Environment override first: FLAGS_MY_FEATURE matches my-feature, my_feature and "my feature"
+        val envVarName = "FLAGS_" + flagName.uppercase().replace('-', '_').replace(' ', '_')
         // Check system property first (for testing), then environment variable
         val envValue = System.getProperty(envVarName) ?: System.getenv(envVarName)
         envValue?.let { value ->
-            return value.lowercase() == "true"
+            return value.trim().lowercase() in TRUTHY
         }
-        
-        // Check cache
-        val (enabled, exists) = cache.get(flagName)
+
+        // Names are cached lowercased, so lookups ignore case
+        val name = flagName.lowercase()
+        val (enabled, exists) = cache.get(name)
         if (exists) {
             return enabled
         }
         
         // If not in cache, wait for refresh and check again
         refreshFlags()
-        val (enabledAfterRefresh, existsAfterRefresh) = cache.get(flagName)
+        val (enabledAfterRefresh, existsAfterRefresh) = cache.get(name)
         return if (existsAfterRefresh) enabledAfterRefresh else false
     }
     
@@ -89,11 +90,31 @@ class FlagsClient private constructor(
         refreshFlags()
     }
 
-    /** Replace the attributes targeting rules see (e.g. email, plan, groups) and re-fetch. */
-    suspend fun setContext(attributes: Map<String, Any>) {
+    /** Replace the attributes targeting rules see (e.g. "groups" to listOf("beta")) and re-fetch. */
+    @JvmName("setContextLists")
+    suspend fun setContext(attributes: Map<String, List<String>>) = replaceContext(attributes)
+
+    /** Single-valued attributes for targeting rules, e.g. mapOf("email" to email, "plan" to "pro"). */
+    suspend fun setContext(attributes: Map<String, String>) = replaceContext(attributes.mapValues { listOf(it.value) })
+
+    @Deprecated("Pass Map<String, String> or Map<String, List<String>>; other values were sent as toString()")
+    @JvmName("setContextAny")
+    suspend fun setContext(attributes: Map<String, Any>) = replaceContext(toLists(attributes))
+
+    private suspend fun replaceContext(attributes: Map<String, List<String>>) {
         context = attributes
         refreshFlags()
     }
+
+    /** Each flag's state, keyed by the names asked for. */
+    suspend fun getMultiple(flagNames: List<String>): Map<String, Boolean> =
+        flagNames.associateWith { isEnabled(it) }
+
+    /** True if every flag is enabled (and for an empty list). */
+    suspend fun allEnabled(flagNames: List<String>): Boolean = flagNames.all { isEnabled(it) }
+
+    /** True if any flag is enabled (false for an empty list). */
+    suspend fun anyEnabled(flagNames: List<String>): Boolean = flagNames.any { isEnabled(it) }
 
     fun Is(flagName: String): Flag {
         return Flag(flagName, this)
@@ -137,7 +158,11 @@ class FlagsClient private constructor(
                     // resolve rollouts once, so the cache (and isEnabled) just see enabled
                     val key = targetingKey
                     val resolved = apiResponse.flags.map {
-                        it.copy(enabled = it.enabled && Rollout.inRollout(it.details.name, key, it.rollout))
+                        // bucket on the name as the API sends it (must match every SDK), then cache it lowercased
+                        it.copy(
+                            enabled = it.enabled && Rollout.inRollout(it.details.name, key, it.rollout),
+                            details = it.details.copy(name = it.details.name.lowercase())
+                        )
                     }
                     cache.refresh(resolved, apiResponse.intervalAllowed)
                     circuitBreaker.recordSuccess()
@@ -177,7 +202,7 @@ class FlagsClient private constructor(
         private var failureThreshold: Int = 5
         private var resetTimeout: Duration = Duration.ofMinutes(1)
         private var targetingKey: String? = null
-        private var context: Map<String, Any> = emptyMap()
+        private var context: Map<String, List<String>> = emptyMap()
         
         fun baseUrl(url: String) = apply { this.baseUrl = url }
         fun auth(auth: Auth) = apply { this.auth = auth }
@@ -188,8 +213,16 @@ class FlagsClient private constructor(
         fun resetTimeout(timeout: Duration) = apply { this.resetTimeout = timeout }
         /** Stable id of the user or device, used for percentage rollouts. */
         fun targetingKey(key: String?) = apply { this.targetingKey = key }
-        /** Attributes for targeting rules, e.g. mapOf("email" to email, "groups" to listOf("beta")). Evaluated by the server. */
-        fun context(attributes: Map<String, Any>) = apply { this.context = attributes }
+        /** Attributes for targeting rules, e.g. mapOf("groups" to listOf("beta", "staff")). Evaluated by the server. */
+        @JvmName("contextLists")
+        fun context(attributes: Map<String, List<String>>) = apply { this.context = attributes }
+
+        /** Single-valued attributes for targeting rules, e.g. mapOf("email" to email, "plan" to "pro"). */
+        fun context(attributes: Map<String, String>) = apply { this.context = attributes.mapValues { listOf(it.value) } }
+
+        @Deprecated("Pass Map<String, String> or Map<String, List<String>>; other values were sent as toString()")
+        @JvmName("contextAny")
+        fun context(attributes: Map<String, Any>) = apply { this.context = toLists(attributes) }
         
         fun withMemoryCache() = apply { this.cache = MemoryCache() }
         fun withSQLiteCache(dbPath: String = "flags_cache.db") = apply { 
@@ -241,6 +274,13 @@ class FlagsClient private constructor(
     }
     
     companion object {
+        private val TRUTHY = setOf("true", "1", "on", "yes", "enabled")
+        private val REFRESH_CHECK_INTERVAL = 30.seconds
+
+        private fun toLists(attributes: Map<String, Any>): Map<String, List<String>> = attributes.mapValues { (_, v) ->
+            if (v is Iterable<*>) v.map { it.toString() } else listOf(v.toString())
+        }
+
         fun builder() = Builder()
         
         suspend fun NewClient(vararg options: ClientOption): FlagsClient {
