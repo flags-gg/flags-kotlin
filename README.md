@@ -192,7 +192,7 @@ Flags can be turned on or off for specific users, groups or segments with rules 
 val client = FlagsClient.builder()
     .auth(auth)
     .targetingKey(user.id)
-    .context(mapOf("email" to user.email, "plan" to user.plan, "groups" to user.groups))
+    .context(mapOf("email" to listOf(user.email), "plan" to listOf(user.plan), "groups" to user.groups))
     .build()
 
 client.setContext(mapOf("plan" to "pro")) // e.g. after an upgrade; re-fetches

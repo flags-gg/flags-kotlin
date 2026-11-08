@@ -1,6 +1,7 @@
 package gg.flags.client
 
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import java.util.Base64
@@ -30,15 +31,10 @@ object Rollout {
 
     /**
      * The user as the server's targeting rules see it: base64 of UTF-8 JSON, with the targeting key as "key".
-     * Attribute values are strings or lists of strings.
      */
-    fun encodeContext(targetingKey: String?, context: Map<String, Any>): String {
-        val fields = context.mapValues { (_, v) ->
-            when (v) {
-                is Iterable<*> -> JsonArray(v.map { JsonPrimitive(it.toString()) })
-                else -> JsonPrimitive(v.toString())
-            }
-        }.toMutableMap()
+    fun encodeContext(targetingKey: String?, context: Map<String, List<String>>): String {
+        val fields: MutableMap<String, JsonElement> =
+            context.mapValues { (_, v) -> JsonArray(v.map { JsonPrimitive(it) }) }.toMutableMap()
         if (!targetingKey.isNullOrEmpty()) fields["key"] = JsonPrimitive(targetingKey)
         return Base64.getEncoder().encodeToString(JsonObject(fields).toString().toByteArray(Charsets.UTF_8))
     }
