@@ -7,7 +7,7 @@ sqlite = "3.54.1.0"
 kotlinLogging = "8.0.4"
 slf4j = "2.0.20"
 mockk = "1.14.11"
-dokka = "2.2.0"
+dokka = "2.3.0"
 
 [libraries]
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib" }
